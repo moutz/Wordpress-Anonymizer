@@ -8,6 +8,11 @@ define('WP_USE_THEMES', false);
 require dirname(__FILE__) . '/../../wp-load.php';
 wp();
 
+
+// DONT SEND EMAIL & PASSWORD CHANGE USER EMAILS
+add_filter( 'send_email_change_email', '__return_false' );
+add_filter( 'send_password_change_email', '__return_false' );
+
 if (!function_exists('wp_mail')) {
     function wp_mail($to, $subject, $message, $headers = '', $attachments = array()) {
         return true;
@@ -30,11 +35,9 @@ function disable_wpmail($args) {
     );
 }
 
-/**
- * Code goes in functions.php or a custom plugin.
- */
+// https://docs.woocommerce.com/document/unhookremove-woocommerce-emails/
 add_action('woocommerce_email', 'unhook_those_pesky_emails');
-/* https://docs.woocommerce.com/document/unhookremove-woocommerce-emails/ */
+
 function unhook_those_pesky_emails($email_class) {
     /**
      * Hooks for sending emails during store events

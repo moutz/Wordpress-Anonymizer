@@ -1,6 +1,6 @@
 <?php
 
-include 'custom_vendor/autoload.php';
+include 'vendor/autoload.php';
 include 'inc/init.php';
 include 'inc/func.php';
 
@@ -21,10 +21,6 @@ $users = get_users_to_anonymize($meta_key_flag, $batch_size, $excluded_roles);
 plog("Exec time : " . getExecutionTime() . " sec");
 
 if ( ! empty( $users ) ) {
-    
-    // DONT SEND EMAIL & PASSWORD CHANGE USER EMAILS
-    add_filter( 'send_email_change_email', '__return_false' );
-    add_filter( 'send_password_change_email', '__return_false' );
     
     foreach ( $users as $user_id ) {
         plog('-----');
@@ -84,51 +80,54 @@ if ( ! empty( $users ) ) {
             plog("user $user_id credentials anonymized");
             plog("Exec time : " . getExecutionTime() . " sec");
             
-            // ALSO ANONYMIZE WOOCOMMERCE USER ADDRESS
-            $customer = new WC_Customer( $user_id );    
-            if ( $customer ) {               
-                foreach ($new_address as $key => $value) {
-                    if ( is_callable( array( $customer, "set_billing_{$key}" ) ) ) {
-                        $customer->{"set_billing_{$key}"}($value);
+            if(class_exists('WC_Customer')){
+
+                // Ano customer adresses
+                $customer = new WC_Customer( $user_id );    
+                if ( $customer ) {               
+                    foreach ($new_address as $key => $value) {
+                        if ( is_callable( array( $customer, "set_billing_{$key}" ) ) ) {
+                            $customer->{"set_billing_{$key}"}($value);
+                        } else {
+                            $customer->update_meta_data( 'billing_' . $key, $value );
+                        }
+                    }
+                    foreach ($new_address as $key => $value) {
+                        if ( is_callable( array( $customer, "set_shipping_{$key}" ) ) ) {
+                            $customer->{"set_shipping_{$key}"}($value);
+                        } else {
+                            $customer->update_meta_data( 'shipping_' . $key, $value );
+                        }
+                    }
+                    $customer->save();
+                    
+                    plog("user $user_id customer anonymized");
+                    plog("Exec time : " . getExecutionTime() . " sec");
+                    
+                    // Get customer orders
+                    $customer_orders = get_order_ids($user_id);
+
+                    if (!empty($customer_orders)) {
+                        foreach ($customer_orders as $order_id) {
+                            // Update billing informations
+                            foreach ($new_address as $key => $value) {
+                                update_post_meta($order_id, '_billing_' . $key, $value);
+                            }
+
+                            // Update shipping informations
+                            foreach ($new_address as $key => $value) {
+                                update_post_meta($order_id, '_shipping_' . $key, $value);
+                            }
+
+                        }
+
+                        plog("user $user_id : ". count($customer_orders) . " orders anonymized");
                     } else {
-                        $customer->update_meta_data( 'billing_' . $key, $value );
+                        plog("user $user_id No orders");
                     }
                 }
-                foreach ($new_address as $key => $value) {
-                    if ( is_callable( array( $customer, "set_shipping_{$key}" ) ) ) {
-                        $customer->{"set_shipping_{$key}"}($value);
-                    } else {
-                        $customer->update_meta_data( 'shipping_' . $key, $value );
-                    }
-                }
-                $customer->save();
-                
-                plog("user $user_id customer anonymized");
                 plog("Exec time : " . getExecutionTime() . " sec");
-                
-                // Get customer orders
-                $customer_orders = get_order_ids($user_id);
-
-                if (!empty($customer_orders)) {
-                    foreach ($customer_orders as $order_id) {
-                        // Update billing informations
-                        foreach ($new_address as $key => $value) {
-                            update_post_meta($order_id, '_billing_' . $key, $value);
-                        }
-
-                        // Update shipping informations
-                        foreach ($new_address as $key => $value) {
-                            update_post_meta($order_id, '_shipping_' . $key, $value);
-                        }
-
-                    }
-
-                    plog("user $user_id : ". count($customer_orders) . " orders anonymized");
-                } else {
-                    plog("user $user_id No orders");
-                }
             }
-            plog("Exec time : " . getExecutionTime() . " sec");
 
         }
 
