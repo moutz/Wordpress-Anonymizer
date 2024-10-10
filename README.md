@@ -22,3 +22,9 @@ then
 ```
 php anonymize-datas.php
 ```
+
+## TODO
+
+- add IP ano
+- add bank datas
+- add gift info (\_gift_email)
